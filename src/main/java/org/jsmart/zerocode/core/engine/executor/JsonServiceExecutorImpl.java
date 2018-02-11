@@ -4,9 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
+import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.PathNotFoundException;
 
+import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import org.jsmart.zerocode.core.domain.MockSteps;
 import org.jsmart.zerocode.core.domain.Response;
 import org.jsmart.zerocode.core.httpclient.BasicHttpClient;
@@ -19,6 +22,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
 import static org.jsmart.zerocode.core.engine.mocker.RestEndPointMocker.createWithLocalMock;
@@ -179,9 +183,22 @@ public class JsonServiceExecutorImpl implements JsonServiceExecutor {
         return false;
     }
 
+    private static final Configuration configuration = Configuration.builder()
+            .jsonProvider(new JacksonJsonNodeJsonProvider())
+            .mappingProvider(new JacksonMappingProvider())
+            .build();
+
     private Object readJsonPathOrElseNull(String requestJson, String jsonPath) {
         try{
+
             return JsonPath.read(requestJson, jsonPath);
+
+//            Object jsonMappableObject = JsonPath.read(requestJson, jsonPath);
+//
+//            JsonNode jsonNode = objectMapper.readTree(jsonMappableObject.toString());
+//
+//            return objectMapper.convertValue(jsonNode, Map.class);
+
         } catch(PathNotFoundException pEx){
             LOGGER.debug("No " + jsonPath + " was present in the request. returned null.");
             return  null;

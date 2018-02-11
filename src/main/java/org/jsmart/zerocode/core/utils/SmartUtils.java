@@ -47,8 +47,13 @@ public class SmartUtils {
         return jsonAsString;
     }
 
-    public static String readJsonAsString(String jsonFileName) throws IOException {
-        return Resources.toString(Resources.getResource(jsonFileName), defaultCharset());
+    public static String readJsonAsString(String jsonFileName) {
+        try {
+            return Resources.toString(Resources.getResource(jsonFileName), defaultCharset());
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Could not read the JSON file '" + jsonFileName + ", as a String");
+        }
     }
 
 
