@@ -1,0 +1,27 @@
+{
+  "scenarioName": "30_request_with_headers_in_json_file",
+  "steps": [
+    {
+      "name": "get_call",
+      "url": "/api/response/with/headers",
+      "operation": "GET",
+      "request": {
+        "headers": "${JSON.FILE:13_headers/common_headers.json}",
+        "body": {
+        }
+      },
+      "assertions": {
+        "status": 200,
+        "headers": {
+          "Content-Type" : [ [ "application/json" ] ],
+          "Connection" : [ [ "keep-alive" ] ],
+          "client_secret" : [ [ "secret_00001" ] ],
+          "client_id" : [ [ "cid_00001" ] ]
+        },
+        "body": {
+          "zeroKey": "zeroValue"
+        }
+      }
+    }
+  ]
+}

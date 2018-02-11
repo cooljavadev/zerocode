@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.google.inject.Inject;
+import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import org.apache.commons.lang.text.StrSubstitutor;
 import org.jsmart.zerocode.core.engine.assertion.ArrayIsEmptyAsserter;
 import org.jsmart.zerocode.core.engine.assertion.ArraySizeAsserter;
@@ -32,6 +35,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
+import static org.apache.commons.lang.StringEscapeUtils.escapeJavaScript;
+import static org.jsmart.zerocode.core.utils.SmartUtils.readJsonAsString;
 
 public class ZeroCodeJsonTestProcesorImpl implements ZeroCodeJsonTestProcesor {
 
@@ -42,12 +47,14 @@ public class ZeroCodeJsonTestProcesorImpl implements ZeroCodeJsonTestProcesor {
     private static final String RANDOM_NUMBER = "RANDOM.NUMBER";
     private static final String RANDOM_STRING_PREFIX = "RANDOM.STRING:";
     private static final String STATIC_ALPHABET = "STATIC.ALPHABET:";
+    private static final String JSON_FILE_PATH = "JSON.FILE:";
 
     private static final List<String> availableTokens = Arrays.asList(
             PREFIX_ASU,
             RANDOM_NUMBER,
             RANDOM_STRING_PREFIX,
-            STATIC_ALPHABET
+            STATIC_ALPHABET,
+            JSON_FILE_PATH
     );
 
     /*
@@ -72,11 +79,19 @@ public class ZeroCodeJsonTestProcesorImpl implements ZeroCodeJsonTestProcesor {
     }
 
 
+    private static final Configuration configuration = Configuration.builder()
+            .jsonProvider(new JacksonJsonNodeJsonProvider())
+            .mappingProvider(new JacksonMappingProvider())
+            .build();
+
     @Override
     public String resolveStringJson(String requestJsonOrAnyString, String scenarioStateJson) {
         Map<String, String> parammap = new HashMap<>();
 
+        List<String> jsonStringWithFileContents = new ArrayList<>();
+
         final List<String> allTokens = getAllTokens(requestJsonOrAnyString);
+
         allTokens.forEach(runTimeToken -> {
             availableTokens.forEach(inStoreToken -> {
                 if (runTimeToken.startsWith(inStoreToken)) {
@@ -91,13 +106,33 @@ public class ZeroCodeJsonTestProcesorImpl implements ZeroCodeJsonTestProcesor {
                         int length = Integer.parseInt(runTimeToken.substring(STATIC_ALPHABET.length()));
                         parammap.put(runTimeToken, createStaticAlphaString(length));
 
+                    } else if (runTimeToken.startsWith(JSON_FILE_PATH)) {
+                        String jsonFilePath = runTimeToken.substring(JSON_FILE_PATH.length());
+                        final String fileJsonContent = readJsonAsString(jsonFilePath);
+                        //parammap.put(runTimeToken, JSON_FILE_PATH + escapeJavaScript(fileJsonContent));
+
+                        ///
+                        JsonNode node = null;
+                        try {
+                            node = mapper.readTree(fileJsonContent);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        JsonNode updatedJson = JsonPath.using(configuration).parse(requestJsonOrAnyString).set("$.headers", node).json();
+
+                        String resolvedWithJsonFile = updatedJson.toString();
+
+                        ///
+
+                        jsonStringWithFileContents.add(resolvedWithJsonFile);
                     }
                 }
             });
         });
 
         StrSubstitutor sub = new StrSubstitutor(parammap);
-        String resolvedFromTemplate = sub.replace(requestJsonOrAnyString);
+        String resolvedFromTemplate = sub.replace(jsonStringWithFileContents.get(0));
 
         return resolveJsonPaths(resolvedFromTemplate, scenarioStateJson);
     }
