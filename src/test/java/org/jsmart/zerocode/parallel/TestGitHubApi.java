@@ -7,7 +7,7 @@ import org.jsmart.zerocode.core.tests.customrunner.TestOnlyZeroCodeUnitRunner;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@TargetEnv("load_config_test.properties")
+@TargetEnv("github_host_test.properties")
 @RunWith(ZeroCodeUnitRunner.class)
 public class TestGitHubApi {
 

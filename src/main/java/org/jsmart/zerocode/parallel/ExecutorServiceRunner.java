@@ -7,56 +7,84 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
 import static java.lang.Integer.parseInt;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.jsmart.zerocode.parallel.PropertiesProvider.getProperty;
 
 public class ExecutorServiceRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(ZeroCodeUnitRunner.class);
 
-    public static final int NO_OF_USERS_IN_RAMP_UP_PERIOD = 5;
-    private int numberOfThreads = parseInt(getProperty("number.of.threads"));
-    private int rampUpPeriod = parseInt(getProperty("ramp.up.period"));
-    private int loopCount = parseInt(getProperty("loop.count"));
+    private List<Runnable> runnables = new ArrayList<>();
+
+    private int numberOfThreads;
+    private int rampUpPeriod;
+    private int loopCount;
 
     private Long delayBetweenTwoThreadsInSecs;
 
-
     public ExecutorServiceRunner() {
-        delayBetweenTwoThreadsInSecs = (rampUpPeriod / NO_OF_USERS_IN_RAMP_UP_PERIOD) * 1000L;
+        delayBetweenTwoThreadsInSecs = (rampUpPeriod / numberOfThreads) * 1000L;
+    }
+
+    public ExecutorServiceRunner(String loadPropertiesFile) {
+        Properties properties = PropertiesProvider.getProperties(loadPropertiesFile);
+        numberOfThreads = parseInt(properties.getProperty("number.of.threads"));
+        rampUpPeriod = parseInt(properties.getProperty("ramp.up.period"));
+        loopCount = parseInt(properties.getProperty("loop.count"));
+
+        calculateAndSetDelayBetweenTwoThreadsInSecs(rampUpPeriod);
+
+        logLoadingProperties();
     }
 
     public ExecutorServiceRunner(int numberOfThreads, int loopCount, int rampUpPeriod) {
         this.numberOfThreads = numberOfThreads;
         this.loopCount = loopCount;
         this.rampUpPeriod = rampUpPeriod;
-        delayBetweenTwoThreadsInSecs = (rampUpPeriod / NO_OF_USERS_IN_RAMP_UP_PERIOD) * 1000L;
+
+        calculateAndSetDelayBetweenTwoThreadsInSecs(rampUpPeriod);
+        logLoadingProperties();
+    }
+
+    public ExecutorServiceRunner addRunnable(Runnable runnable) {
+        runnables.add(runnable);
+        return this;
+    }
+
+
+    public void runRunnables() {
+        if (runnables == null || runnables.size() == 0) {
+            throw new RuntimeException("No runnable found to run. You can add one or more runnables using 'addRunnable(Runnable runnable)'");
+        }
+        runRunnables(runnables);
     }
 
     public void runRunnables(List<Runnable> runnables) {
+
         ExecutorService executorService = newFixedThreadPool(numberOfThreads);
 
         try {
             for (int i = 0; i < loopCount; i++) {
                 runnables.stream().forEach(thisFunction -> {
-                    for (int j = 0; j < NO_OF_USERS_IN_RAMP_UP_PERIOD; j++) {
-                        System.out.println("j -> " + j);
-                        System.out.println(Thread.currentThread().getName() + " JUnit test- Start. Time = " + LocalDateTime.now());
+                    for (int j = 0; j < numberOfThreads; j++) {
+                        LOGGER.info(Thread.currentThread().getName() + " JUnit test- Start. Time = " + LocalDateTime.now());
                         try {
-                            System.out.println("waiting in the transit for adjusting ramp up, wait time : " + delayBetweenTwoThreadsInSecs);
+                            LOGGER.info("Waiting in the transit for next flight to adjust overall ramp up time, wait time now = " + delayBetweenTwoThreadsInSecs);
                             Thread.sleep(delayBetweenTwoThreadsInSecs);
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
 
                         executorService.execute(thisFunction);
-                        System.out.println(Thread.currentThread().getName() + " JUnit test- *Finished Time = " + LocalDateTime.now() );
 
+                        LOGGER.info(Thread.currentThread().getName() + " JUnit test- *Finished Time = " + LocalDateTime.now());
                     }
                 });
             }
@@ -65,67 +93,46 @@ public class ExecutorServiceRunner {
         } finally {
             executorService.shutdown();
             while (!executorService.isTerminated()) {
-                //wait for all tasks to finish
-                //System.out.println("Still waiting for all threads to complete execution...");
+                //wait for all tasks to finish execution
+                //LOGGER.info("Still waiting for all threads to complete execution...");
             }
-            System.out.println("Finished all threads");
+            LOGGER.info("**Finished executing all threads**");
         }
     }
 
-    public void runSimple(List<Callable<Object>> callables) {
+
+    public void runCallables(List<Callable<Object>> callables) {
 
         ExecutorService executorService = newFixedThreadPool(numberOfThreads);
 
-        Runnable task = () -> {
-            System.out.println(Thread.currentThread().getName() + " Task- Start. Time = " + LocalDateTime.now());
-            try {
-                Thread.sleep(5000L);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            System.out.println(Thread.currentThread().getName() + " Task- **Finished* Time = " + LocalDateTime.now());
-
-        };
-
         try {
-            for (int i = 0; i < loopCount; i++) {
-                executorService.invokeAll(callables).stream().forEach(future -> {
-                    for (int j = 0; j < NO_OF_USERS_IN_RAMP_UP_PERIOD; j++) {
-                        System.out.println("j -> " + j);
-                        System.out.println(Thread.currentThread().getName() + " JUnit test- Start. Time = " + LocalDateTime.now());
-                        try {
-                            Thread.sleep(delayBetweenTwoThreadsInSecs);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-
-
-//                        execute(future);
-
-//                        executorService.execute(task);
-
-
-                        System.out.println(Thread.currentThread().getName() + " JUnit test- *Finished Time = " + LocalDateTime.now() );
-
+            executorService.invokeAll(callables).stream().forEach(future -> {
+                for (int j = 0; j < numberOfThreads; j++) {
+                    LOGGER.info(Thread.currentThread().getName() + " Future execution- Start. Time = " + LocalDateTime.now());
+                    try {
+                        Thread.sleep(delayBetweenTwoThreadsInSecs);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
                     }
-                });
-            }
+
+                    execute(future);
+
+                    LOGGER.info(Thread.currentThread().getName() + " Future execution- *Finished Time = " + LocalDateTime.now());
+
+                }
+            });
         } catch (InterruptedException interruptEx) {
             throw new RuntimeException(interruptEx);
         } finally {
             executorService.shutdown();
             while (!executorService.isTerminated()) {
-                //wait for all tasks to finish
-                //System.out.println("Still waiting for all threads to complete execution...");
+                // wait for all tasks to finish executing
+                // LOGGER.info("Still waiting for all threads to complete execution...");
             }
-            System.out.println("Finished all threads");
+            LOGGER.info("Finished all threads");
         }
 
 
-    }
-
-    public Runnable createRunnables(Runnable runnable) {
-        return runnable;
     }
 
     public <T extends Object> Callable<Object> createCallableFuture(T objectToConsumer, Consumer<T> consumer) {
@@ -137,7 +144,7 @@ public class ExecutorServiceRunner {
 
     private Object execute(Future<Object> future) {
         try {
-            System.out.println("executing..........");
+            LOGGER.info("executing Future now...");
             return future.get();
         } catch (Exception futureEx) {
             if (futureEx.getCause() instanceof InternalServerErrorException) {
@@ -156,4 +163,24 @@ public class ExecutorServiceRunner {
     }
 
 
+    private void calculateAndSetDelayBetweenTwoThreadsInSecs(int rampUpPeriod) {
+        if (rampUpPeriod == 0) {
+            delayBetweenTwoThreadsInSecs = 0L;
+
+        } else {
+
+            delayBetweenTwoThreadsInSecs = (rampUpPeriod / numberOfThreads) * 1000L;
+        }
+    }
+
+    public List<Runnable> getRunnables() {
+        return runnables;
+    }
+
+
+    private void logLoadingProperties() {
+        LOGGER.info("### numberOfThreads : " + numberOfThreads);
+        LOGGER.info("### rampUpPeriod : " + rampUpPeriod);
+        LOGGER.info("### loopCount : " + loopCount);
+    }
 }
