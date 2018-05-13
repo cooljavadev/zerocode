@@ -1,5 +1,6 @@
-package org.jsmart.zerocode.parallel;
+package org.jsmart.zerocode.parallel.simple;
 
+import org.jsmart.zerocode.parallel.ExecutorServiceRunner;
 import org.junit.Test;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Request;
