@@ -27,10 +27,10 @@ public class ExecutorServiceRunner {
     private int rampUpPeriod;
     private int loopCount;
 
-    private Long delayBetweenTwoThreadsInSecs;
+    private Double delayBetweenTwoThreadsInMilliSecs;
 
     public ExecutorServiceRunner() {
-        delayBetweenTwoThreadsInSecs = (rampUpPeriod / numberOfThreads) * 1000L;
+        delayBetweenTwoThreadsInMilliSecs = (Double.valueOf(rampUpPeriod) / Double.valueOf(numberOfThreads)) * 1000L;
     }
 
     public ExecutorServiceRunner(String loadPropertiesFile) {
@@ -61,7 +61,7 @@ public class ExecutorServiceRunner {
 
     public void runRunnables() {
         if (runnables == null || runnables.size() == 0) {
-            throw new RuntimeException("No runnable found to run. You can add one or more runnables using 'addRunnable(Runnable runnable)'");
+            throw new RuntimeException("No runnable were found to run. You can add one or more runnables using 'addRunnable(Runnable runnable)'");
         }
         runRunnables(runnables);
     }
@@ -76,8 +76,8 @@ public class ExecutorServiceRunner {
                     for (int j = 0; j < numberOfThreads; j++) {
                         LOGGER.info(Thread.currentThread().getName() + " JUnit test- Start. Time = " + LocalDateTime.now());
                         try {
-                            LOGGER.info("Waiting in the transit for next flight to adjust overall ramp up time, wait time now = " + delayBetweenTwoThreadsInSecs);
-                            Thread.sleep(delayBetweenTwoThreadsInSecs);
+                            LOGGER.info("Waiting in the transit for next flight to adjust overall ramp up time, wait time now = " + delayBetweenTwoThreadsInMilliSecs);
+                            Thread.sleep(delayBetweenTwoThreadsInMilliSecs.longValue());
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
@@ -110,7 +110,7 @@ public class ExecutorServiceRunner {
                 for (int j = 0; j < numberOfThreads; j++) {
                     LOGGER.info(Thread.currentThread().getName() + " Future execution- Start. Time = " + LocalDateTime.now());
                     try {
-                        Thread.sleep(delayBetweenTwoThreadsInSecs);
+                        Thread.sleep(delayBetweenTwoThreadsInMilliSecs.longValue());
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
@@ -118,7 +118,6 @@ public class ExecutorServiceRunner {
                     execute(future);
 
                     LOGGER.info(Thread.currentThread().getName() + " Future execution- *Finished Time = " + LocalDateTime.now());
-
                 }
             });
         } catch (InterruptedException interruptEx) {
@@ -165,11 +164,11 @@ public class ExecutorServiceRunner {
 
     private void calculateAndSetDelayBetweenTwoThreadsInSecs(int rampUpPeriod) {
         if (rampUpPeriod == 0) {
-            delayBetweenTwoThreadsInSecs = 0L;
+            delayBetweenTwoThreadsInMilliSecs = 0D;
 
         } else {
 
-            delayBetweenTwoThreadsInSecs = (rampUpPeriod / numberOfThreads) * 1000L;
+            delayBetweenTwoThreadsInMilliSecs = (Double.valueOf(rampUpPeriod) / Double.valueOf(numberOfThreads)) * 1000L;
         }
     }
 

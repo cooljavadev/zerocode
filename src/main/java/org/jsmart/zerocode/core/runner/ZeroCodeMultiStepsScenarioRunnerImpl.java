@@ -23,6 +23,9 @@ import org.junit.runner.notification.RunNotifier;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
@@ -38,10 +41,10 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
 
     //guice -starts
     @Inject
-    ObjectMapper objectMapper;
+    private ObjectMapper objectMapper;
 
     @Inject
-    ZeroCodeJsonTestProcesor zeroCodeJsonTestProcesor;
+    private ZeroCodeJsonTestProcesor zeroCodeJsonTestProcesor;
 
     @Inject
     private JsonServiceExecutor serviceExecutor;
@@ -66,6 +69,8 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
     private ZeroCodeReportBuilder reportBuilder = ZeroCodeReportBuilder.newInstance().timeStamp(LocalDateTime.now());
 
     private ZeroCodeExecResultBuilder reportResultBuilder;
+
+    static Map<String, String> reportGenMap = new ConcurrentHashMap<>();
 
     private Boolean stepOutcome;
 
@@ -279,7 +284,7 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
                          */
                         if(!stepOutcome) {
                             reportBuilder.result(reportResultBuilder.build());
-                            reportBuilder.printToFile(scenario.getScenarioName() + LocalDateTime.now() + ".json");
+                            reportBuilder.printToFileAsync(scenario.getScenarioName() + UUID.randomUUID() + ".json");
                         }
                     }
 
@@ -300,7 +305,7 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
         /*
          * PASSED reports are generated here
          */
-        reportBuilder.printToFile(scenario.getScenarioName() + LocalDateTime.now() + ".json");
+        reportBuilder.printToFileAsync(scenario.getScenarioName() + UUID.randomUUID() + ".json");
 
         /*
          *  There were no steps to execute and the framework will display the test status as Green than Red.
